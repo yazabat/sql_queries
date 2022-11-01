@@ -17,22 +17,17 @@ WHERE CustomerID=6
 -----------------------------------------------------------------------
 SELECT * 
 	FROM [dbo].[FactInvoice] i
-		LEFT JOIN [dbo].[DimCustomer] c
+		INNER JOIN [dbo].[DimCustomer] c
 			ON i.CustomerID = c.CustomerID
 WHERE c.CustomerID is null
 
----
-SELECT * 
-FROM [dbo].[FactInvoice] i
-	LEFT JOIN [dbo].[DimCustomer] c
-		ON i.CustomerID = c.CustomerID
-	WHERE c.CustomerID is null
+
 
 --2		Number of invoices with customer not found in the customer table, by customer---
 --		=>> List oldest and newest invoice data for each customer
 ----------------------------------------------------------------------------------------
 --https://www.youtube.com/watch?v=HYeZKS9F2b0
-SELECT i.[InvoiceID], i.[CustomerID] 
+SELECT COUNT(i.[InvoiceID]), c.[CustomerName]
 	FROM [dbo].[FactInvoice] i
 		LEFT JOIN [dbo].[DimCustomer] c
 			ON i.CustomerID = c.CustomerID
@@ -84,7 +79,6 @@ WHERE ITEMNUMBER>1
 SELECT D.CALENDARMONTHNAME, FI.[InvoiceID]
 FROM [dbo].[DimDate] D 
 	INNER JOIN [dbo].[FactInvoice] FI ON D.DateKey=FI.InvoiceDateKey
-	INNER JOIN [dbo].[DimCustomer] C on FI.CustomerID= C.CustomerID
 GROUP BY D.CALENDARMONTHNAME
 HAVING FI.InvoiceStatus='DEACTIVATED'
 
@@ -94,11 +88,10 @@ HAVING FI.InvoiceStatus='DEACTIVATED'
  --			five you should use a group query by month and status, and in your select 
  --			You would put a count for number of invoices and sum for total amount
 
-SELECT FI.INVOICESTATUS status_invoice, SUM(FI.INVOICEAMOUNT) Total_Amount,
+SELECT COUNT(FI.INVOICESTATUS) status_invoice, SUM(FI.INVOICEAMOUNT) Total_Amount,
 DD.CALENDARMONTHNAME Month_Name, 
 RANK() OVER( ORDER BY COUNT(FI.INVOICEID)desc)  number_invoices
 FROM FactInvoice FI 
-INNER JOIN DimCustomer C ON FI.CustomerID=C.CustomerID
 INNER JOIN DimDate DD ON DD.DateKey=FI.InvoiceDateKey 
 GROUP BY DD.CALENDARMONTHNAME, FI.INVOICESTATUS;
 
@@ -110,22 +103,22 @@ GROUP BY DD.CALENDARMONTHNAME, FI.INVOICESTATUS;
 	
 			Select distinct C.CustomerID
 				from [dbo].[DimCustomer] C
-					left join [dbo].[FactInvoice] i
+					inner join [dbo].[FactInvoice] i
 						on c.CustomerID= i.CustomerID
 			where i.InvoiceDateKey between 20200401 and 20200430
 			and i.InvoiceID is null
 
 			
-			-- In the number 6, your select doesn't indicate the field for extract, 
-			-- only say c. and i. , but should say c.name_field or c.* 
+			-- otherwise they will never return in case of left join
+			--
 
 
 -- TROUBLESHOOTING
 --7		What is wrong with the code below?
 
 			--Query for finding the customers that have at least one invoice that is 
-			OPEN and for those customers, we want to show the customer and ALL their
-			invoices	
+			--OPEN and for those customers, we want to show the customer and ALL their
+			--invoices	
 		
 			select c.*, i.*
 				from [dbo].[DimCustomer] c
@@ -152,27 +145,25 @@ GROUP BY i.CustomerID, i.[InvoiceID]
 				when [CustomerStatus] = 'Closed' and [InvoiceStatus]='Open' then
 				'Incomplete'
 				else 'Closed' end as [Status]
-				, sum ([InvoiceAmount]) as [Amount]
+				, sum (i.[InvoiceAmount]) as [Amount]
+				------------ add i ?
 		from [dbo].[DimCustomer] c
 		join [dbo].[FactInvoice] i
 		on c.CustomerID=i.CustomerID
 		group by c.CustomerID, c.CustomerName
-		*********************************************/
-
+	
 
 -----------------------------------------------------------------------------------
 --9		Customers with more than two invoices per month
 
-
-
-SELECT C.[CustomerID]
+SELECT C.[CustomerID], C.[InvoiceID]
 	FROM [dbo].[DimCustomer] C
-		INNER JOIN ( SELECT * FROM [dbo].[FactInvoice] FI
+		INNER JOIN ( SELECT COUNT( MONTHNAME[CalendarMonthName]) FROM [dbo].[FactInvoice] FI
 					LEFT JOIN [dbo].[DimDate] D 
 						ON FI.[InvoiceDateKey] = D.[DateKey]
 							GROUP BY MONTHNAME[CalendarMonthName]
-							HAVING MONTHNAME[CalendarMonthName]>1) 
-					ON on FI.CustomerID= C.CustomerID
+							HAVING COUNT( MONTHNAME[CalendarMonthName])>1) as repeated
+					ON repeated.CustomerID= C.CustomerID
 
 
 
